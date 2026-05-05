@@ -145,6 +145,7 @@ export default function App() {
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importPasteDraft, setImportPasteDraft] = useState('')
   const [shareUrlModal, setShareUrlModal] = useState<string | null>(null)
+  const [loadModalOpen, setLoadModalOpen] = useState(false)
   const [storageBlocked, setStorageBlocked] = useState(false)
   const saveNameInputRef = useRef<HTMLInputElement>(null)
   const importPasteRef = useRef<HTMLTextAreaElement>(null)
@@ -195,7 +196,8 @@ export default function App() {
       confirmDialog ||
       saveModalOpen ||
       importModalOpen ||
-      shareUrlModal != null
+      shareUrlModal != null ||
+      loadModalOpen
     if (!anyOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
@@ -203,10 +205,11 @@ export default function App() {
       setSaveModalOpen(false)
       setImportModalOpen(false)
       setShareUrlModal(null)
+      setLoadModalOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [confirmDialog, saveModalOpen, importModalOpen, shareUrlModal])
+  }, [confirmDialog, saveModalOpen, importModalOpen, shareUrlModal, loadModalOpen])
 
   useEffect(() => {
     if (saveModalOpen) {
@@ -700,6 +703,51 @@ export default function App() {
         </div>
       )}
 
+      {loadModalOpen && (
+        <div
+          className="modal-backdrop no-print"
+          role="presentation"
+          onClick={() => setLoadModalOpen(false)}
+        >
+          <div
+            className="modal modal-wide load-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="load-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="load-modal-title">Load saved session</h3>
+            <p className="modal-body">Choose a session stored on this device.</p>
+            <ul className="load-pick-list">
+              {savedGroups.map((g) => (
+                <li key={g.id}>
+                  <button
+                    type="button"
+                    className="load-pick-item"
+                    onClick={() => {
+                      handleLoadGroup(g.id)
+                      setLoadModalOpen(false)
+                    }}
+                  >
+                    <span className="load-pick-name">{g.name}</span>
+                    <span className="load-pick-meta">
+                      {g.players.length}p · {g.courts}c
+                      {g.rounds?.length ? ` · ${g.rounds.length} rnd` : ''}
+                      {g.finalRound ? ' · final' : ''}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setLoadModalOpen(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="hero no-print">
         <h1>Pickleball mixer</h1>
         <p className="lede">
@@ -803,28 +851,13 @@ export default function App() {
               Import from link
             </button>
             {savedGroups.length > 0 && (
-              <label className="field tight">
-                <span>Load</span>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v) handleLoadGroup(v)
-                    e.target.value = ''
-                  }}
-                >
-                  <option value="">Choose…</option>
-                  {savedGroups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name} ({g.players.length}p, {g.courts}c
-                      {g.rounds?.length
-                        ? `, ${g.rounds.length} rnd`
-                        : ''}
-                      {g.finalRound ? ', final' : ''})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <button
+                type="button"
+                className="load-saved-btn"
+                onClick={() => setLoadModalOpen(true)}
+              >
+                Load saved…
+              </button>
             )}
           </div>
           {savedGroups.length > 0 && (

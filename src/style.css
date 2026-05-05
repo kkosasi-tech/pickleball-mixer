@@ -109,6 +109,54 @@ body {
   padding: 0.5rem 1rem;
 }
 
+.load-saved-btn {
+  min-height: 2.75rem;
+  touch-action: manipulation;
+}
+
+.load-pick-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.5rem;
+  max-height: min(60vh, 24rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.load-pick-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 0.5rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #fff;
+  min-height: 2.75rem;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+.load-pick-item:active {
+  background: #f0f7f0;
+}
+
+.load-pick-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.load-pick-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
 .storage-warning {
   padding: 0.65rem 0.85rem;
   margin: 0 0 0.75rem;
