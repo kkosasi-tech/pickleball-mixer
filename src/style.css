@@ -27,6 +27,64 @@ body {
   min-height: 100vh;
 }
 
+/* In-app confirm (replaces window.confirm for mobile / Brave) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(20, 32, 24, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  touch-action: manipulation;
+}
+
+.modal {
+  width: 100%;
+  max-width: 22rem;
+  padding: 1.25rem 1.35rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 48px rgba(20, 32, 24, 0.2);
+}
+
+.modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.modal-body {
+  margin: 0 0 1.1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.modal-actions button {
+  min-height: 2.75rem;
+  min-width: 5.5rem;
+  padding: 0.5rem 1rem;
+}
+
+button.danger {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+button.danger:hover {
+  filter: brightness(0.95);
+}
+
 .page {
   max-width: 52rem;
   margin: 0 auto;

@@ -135,6 +135,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [copyHint, setCopyHint] = useState<string | null>(null)
   const [savedGroups, setSavedGroups] = useState<SavedGroup[]>([])
+  const [confirmDialog, setConfirmDialog] = useState<
+    null | 'remove-championship' | 'rebuild-championship'
+  >(null)
 
   const names = useMemo(() => parseNames(playerText), [playerText])
   const effectiveCourts = useMemo(
@@ -167,6 +170,15 @@ export default function App() {
   const refreshSaved = useCallback(() => {
     setSavedGroups(loadSavedGroups())
   }, [])
+
+  useEffect(() => {
+    if (!confirmDialog) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmDialog(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmDialog])
 
   useEffect(() => {
     refreshSaved()
@@ -243,18 +255,9 @@ export default function App() {
     })
   }
 
-  const setupChampionshipRound = (replaceExisting: boolean) => {
+  const setupChampionshipRoundFirstTime = () => {
     if (!schedule || names.length < 4) return
-    if (finalRound && !replaceExisting) return
-    if (
-      finalRound &&
-      replaceExisting &&
-      !window.confirm(
-        'Replace championship matchups and clear final scores? Regular-round scores stay the same.',
-      )
-    ) {
-      return
-    }
+    if (finalRound) return
     setError(null)
     const reg = computeRegularTotals(names.length, schedule, roundScores)
     const ranked = rankPlayersByTotals(reg)
@@ -263,15 +266,21 @@ export default function App() {
     setFinalScores(emptyRoundPoints(fr))
   }
 
-  const rebuildChampionshipRound = () => {
-    setupChampionshipRound(true)
+  const executeRebuildChampionshipRound = () => {
+    if (!schedule || names.length < 4) return
+    setError(null)
+    const reg = computeRegularTotals(names.length, schedule, roundScores)
+    const ranked = rankPlayersByTotals(reg)
+    const fr = buildChampionshipRound(ranked)
+    setFinalRound(fr)
+    setFinalScores(emptyRoundPoints(fr))
+    setConfirmDialog(null)
   }
 
-  const clearChampionshipRound = () => {
-    if (!finalRound) return
-    if (!window.confirm('Remove the championship round and all final scores?')) return
+  const executeRemoveChampionshipRound = () => {
     setFinalRound(null)
     setFinalScores(null)
+    setConfirmDialog(null)
   }
 
   const handleShare = async () => {
@@ -431,6 +440,51 @@ export default function App() {
 
   return (
     <div className="page">
+      {confirmDialog && (
+        <div
+          className="modal-backdrop no-print"
+          role="presentation"
+          onClick={() => setConfirmDialog(null)}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-dialog-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="confirm-dialog-title">
+              {confirmDialog === 'remove-championship'
+                ? 'Remove championship?'
+                : 'Rebuild championship matchups?'}
+            </h3>
+            <p className="modal-body">
+              {confirmDialog === 'remove-championship'
+                ? 'This removes the championship round and all final scores. Regular-round scores stay as they are.'
+                : 'This replaces championship matchups using current standings and clears final scores. Regular-round scores stay the same.'}
+            </p>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setConfirmDialog(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger"
+                onClick={
+                  confirmDialog === 'remove-championship'
+                    ? executeRemoveChampionshipRound
+                    : executeRebuildChampionshipRound
+                }
+              >
+                {confirmDialog === 'remove-championship'
+                  ? 'Remove championship'
+                  : 'Rebuild'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="hero no-print">
         <h1>Pickleball mixer</h1>
         <p className="lede">
@@ -690,17 +744,23 @@ export default function App() {
                 <button
                   type="button"
                   className="primary"
-                  onClick={() => setupChampionshipRound(false)}
+                  onClick={setupChampionshipRoundFirstTime}
                   disabled={!!finalRound}
                 >
                   Set up championship round
                 </button>
                 {finalRound && (
                   <>
-                    <button type="button" onClick={rebuildChampionshipRound}>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDialog('rebuild-championship')}
+                    >
                       Rebuild matchups from standings
                     </button>
-                    <button type="button" onClick={clearChampionshipRound}>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDialog('remove-championship')}
+                    >
                       Remove championship
                     </button>
                   </>
