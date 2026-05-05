@@ -18,6 +18,23 @@ export type SavedGroup = {
   savedAt?: number
 }
 
+export type StorageResult = { ok: true } | { ok: false; error: string }
+
+const STORAGE_HINT =
+  'This browser blocked saving (often Brave Shields or private mode). Allow cookies/storage for this site, or turn shields down for this site, then try again.'
+
+/** Quick probe — call before relying on saves (Brave / strict modes may block). */
+export function canUseLocalStorage(): boolean {
+  try {
+    const k = '__pickleball_ls_probe__'
+    localStorage.setItem(k, '1')
+    localStorage.removeItem(k)
+    return true
+  } catch {
+    return false
+  }
+}
+
 function isRound(x: unknown): x is Round {
   if (!x || typeof x !== 'object') return false
   const o = x as Round
@@ -89,7 +106,11 @@ export function loadSavedGroups(): SavedGroup[] {
     if (!raw) {
       const legacy = localStorage.getItem(LEGACY_KEY)
       if (legacy) {
-        localStorage.setItem(KEY, legacy)
+        try {
+          localStorage.setItem(KEY, legacy)
+        } catch {
+          /* blocked mid-migrate */
+        }
         raw = legacy
       }
     }
@@ -102,18 +123,31 @@ export function loadSavedGroups(): SavedGroup[] {
   }
 }
 
-export function persistSavedGroups(groups: SavedGroup[]): void {
-  localStorage.setItem(KEY, JSON.stringify(groups))
+export function persistSavedGroups(groups: SavedGroup[]): StorageResult {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(groups))
+    return { ok: true }
+  } catch {
+    return { ok: false, error: STORAGE_HINT }
+  }
 }
 
-export function upsertSavedGroup(group: SavedGroup): void {
-  const all = loadSavedGroups()
-  const idx = all.findIndex((g) => g.id === group.id)
-  if (idx >= 0) all[idx] = group
-  else all.push(group)
-  persistSavedGroups(all)
+export function upsertSavedGroup(group: SavedGroup): StorageResult {
+  try {
+    const all = loadSavedGroups()
+    const idx = all.findIndex((g) => g.id === group.id)
+    if (idx >= 0) all[idx] = group
+    else all.push(group)
+    return persistSavedGroups(all)
+  } catch {
+    return { ok: false, error: STORAGE_HINT }
+  }
 }
 
-export function deleteSavedGroup(id: string): void {
-  persistSavedGroups(loadSavedGroups().filter((g) => g.id !== id))
+export function deleteSavedGroup(id: string): StorageResult {
+  try {
+    return persistSavedGroups(loadSavedGroups().filter((g) => g.id !== id))
+  } catch {
+    return { ok: false, error: STORAGE_HINT }
+  }
 }

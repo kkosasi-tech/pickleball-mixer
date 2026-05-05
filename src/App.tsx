@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   activeCourtCount,
   generateSchedule,
@@ -23,11 +23,14 @@ import {
   type SharePayloadV2,
 } from './share'
 import {
+  canUseLocalStorage,
   deleteSavedGroup,
   loadSavedGroups,
   type SavedGroup,
   upsertSavedGroup,
 } from './storage'
+
+import './style.css'
 
 function maxPlayerIndexInSession(
   rounds: Round[],
@@ -48,7 +51,6 @@ function maxPlayerIndexInSession(
   }
   return m
 }
-import './style.css'
 
 function formatMatch(names: string[], m: Match): string {
   const t1 = `${names[m.team1[0]]} & ${names[m.team1[1]]}`
@@ -138,6 +140,14 @@ export default function App() {
   const [confirmDialog, setConfirmDialog] = useState<
     null | 'remove-championship' | 'rebuild-championship'
   >(null)
+  const [saveModalOpen, setSaveModalOpen] = useState(false)
+  const [saveNameDraft, setSaveNameDraft] = useState('')
+  const [importModalOpen, setImportModalOpen] = useState(false)
+  const [importPasteDraft, setImportPasteDraft] = useState('')
+  const [shareUrlModal, setShareUrlModal] = useState<string | null>(null)
+  const [storageBlocked, setStorageBlocked] = useState(false)
+  const saveNameInputRef = useRef<HTMLInputElement>(null)
+  const importPasteRef = useRef<HTMLTextAreaElement>(null)
 
   const names = useMemo(() => parseNames(playerText), [playerText])
   const effectiveCourts = useMemo(
@@ -168,17 +178,47 @@ export default function App() {
   )
 
   const refreshSaved = useCallback(() => {
+    setStorageBlocked(!canUseLocalStorage())
     setSavedGroups(loadSavedGroups())
   }, [])
 
   useEffect(() => {
-    if (!confirmDialog) return
+    const onVis = () => {
+      if (document.visibilityState === 'visible') refreshSaved()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [refreshSaved])
+
+  useEffect(() => {
+    const anyOpen =
+      confirmDialog ||
+      saveModalOpen ||
+      importModalOpen ||
+      shareUrlModal != null
+    if (!anyOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setConfirmDialog(null)
+      if (e.key !== 'Escape') return
+      setConfirmDialog(null)
+      setSaveModalOpen(false)
+      setImportModalOpen(false)
+      setShareUrlModal(null)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [confirmDialog])
+  }, [confirmDialog, saveModalOpen, importModalOpen, shareUrlModal])
+
+  useEffect(() => {
+    if (saveModalOpen) {
+      queueMicrotask(() => saveNameInputRef.current?.focus())
+    }
+  }, [saveModalOpen])
+
+  useEffect(() => {
+    if (importModalOpen) {
+      queueMicrotask(() => importPasteRef.current?.focus())
+    }
+  }, [importModalOpen])
 
   useEffect(() => {
     refreshSaved()
@@ -303,22 +343,35 @@ export default function App() {
       await navigator.clipboard.writeText(url)
       setCopyHint('Link copied. Paste it anywhere recipients can open it.')
     } catch {
-      window.prompt('Copy this link:', url)
+      setShareUrlModal(url)
       setCopyHint(null)
     }
   }
 
-  const handleSaveGroup = () => {
+  const openSaveModal = () => {
     if (names.length < 4) return
-    const label = window.prompt(
-      schedule
-        ? 'Name for this saved session (roster, schedule, and scores on this device):'
-        : 'Name for this roster (saved on this device). Generate a schedule first to include scores.',
-    )
-    if (!label?.trim()) return
+    setStorageBlocked(!canUseLocalStorage())
+    setError(null)
+    setSaveNameDraft('')
+    setSaveModalOpen(true)
+  }
+
+  const submitSaveSession = () => {
+    const label = saveNameDraft.trim()
+    if (!label) {
+      setError('Enter a name for this saved session.')
+      return
+    }
+    if (!canUseLocalStorage()) {
+      setStorageBlocked(true)
+      setError(
+        'Saving is blocked in this browser profile. Allow storage for this site (see note below), then try again.',
+      )
+      return
+    }
     const group: SavedGroup = {
       id: crypto.randomUUID(),
-      name: label.trim(),
+      name: label,
       players: [...names],
       courts,
       savedAt: Date.now(),
@@ -329,8 +382,71 @@ export default function App() {
       group.finalRound = finalRound
       group.finalScores = finalScores
     }
-    upsertSavedGroup(group)
+    const result = upsertSavedGroup(group)
+    if (!result.ok) {
+      setError(result.error)
+      return
+    }
+    setError(null)
+    setSaveModalOpen(false)
+    setSaveNameDraft('')
+    setCopyHint('Saved on this device.')
     refreshSaved()
+  }
+
+  const openImportModal = () => {
+    setError(null)
+    setImportPasteDraft('')
+    setImportModalOpen(true)
+  }
+
+  const submitImportPayload = () => {
+    const raw = importPasteDraft.trim()
+    if (!raw) {
+      setError('Paste a shared link or the ?d=… payload first.')
+      return
+    }
+    try {
+      const u = new URL(raw)
+      const d = u.searchParams.get('d')
+      if (d) {
+        const data = decodeSharePayload(d)
+        if (data) {
+          const p = normalizeSharePayload(data)
+          setPlayerText(p.names.join('\n'))
+          setCourts(p.courts)
+          setSchedule(p.rounds)
+          setRoundCount(p.rounds.length || 7)
+          setRoundScores(p.roundScores)
+          setFinalRound(p.finalRound)
+          setFinalScores(p.finalScores)
+          setImportModalOpen(false)
+          setImportPasteDraft('')
+          setError(null)
+          setCopyHint(null)
+          return
+        }
+      }
+    } catch {
+      /* not a full URL */
+    }
+    const data = decodeSharePayload(raw)
+    if (data) {
+      const p = normalizeSharePayload(data)
+      setPlayerText(p.names.join('\n'))
+      setCourts(p.courts)
+      setSchedule(p.rounds)
+      setRoundCount(p.rounds.length || 7)
+      setRoundScores(p.roundScores)
+      setFinalRound(p.finalRound)
+      setFinalScores(p.finalScores)
+      setImportModalOpen(false)
+      setImportPasteDraft('')
+      setError(null)
+      setCopyHint(null)
+    } else {
+      setError('Could not read that link or payload.')
+    }
   }
 
   const handleLoadGroup = (id: string) => {
@@ -382,47 +498,20 @@ export default function App() {
   }
 
   const handleDeleteGroup = (id: string) => {
-    deleteSavedGroup(id)
+    const r = deleteSavedGroup(id)
+    if (!r.ok) setError(r.error)
+    else setError(null)
     refreshSaved()
   }
 
-  const handleImportFromHash = () => {
-    const raw = window.prompt('Paste a shared link or the ?d=… payload:')
-    if (!raw?.trim()) return
+  const copyShareUrlFromModal = async () => {
+    if (!shareUrlModal) return
     try {
-      const u = new URL(raw.trim())
-      const d = u.searchParams.get('d')
-      if (d) {
-        const data = decodeSharePayload(d)
-        if (data) {
-          const p = normalizeSharePayload(data)
-          setPlayerText(p.names.join('\n'))
-          setCourts(p.courts)
-          setSchedule(p.rounds)
-          setRoundCount(p.rounds.length || 7)
-          setRoundScores(p.roundScores)
-          setFinalRound(p.finalRound)
-          setFinalScores(p.finalScores)
-          setError(null)
-          return
-        }
-      }
+      await navigator.clipboard.writeText(shareUrlModal)
+      setCopyHint('Link copied.')
+      setShareUrlModal(null)
     } catch {
-      /* not a full URL */
-    }
-    const data = decodeSharePayload(raw.trim())
-    if (data) {
-      const p = normalizeSharePayload(data)
-      setPlayerText(p.names.join('\n'))
-      setCourts(p.courts)
-      setSchedule(p.rounds)
-      setRoundCount(p.rounds.length || 7)
-      setRoundScores(p.roundScores)
-      setFinalRound(p.finalRound)
-      setFinalScores(p.finalScores)
-      setError(null)
-    } else {
-      setError('Could not read that link or payload.')
+      setCopyHint(null)
     }
   }
 
@@ -479,6 +568,132 @@ export default function App() {
                 {confirmDialog === 'remove-championship'
                   ? 'Remove championship'
                   : 'Rebuild'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {saveModalOpen && (
+        <div
+          className="modal-backdrop no-print"
+          role="presentation"
+          onClick={() => setSaveModalOpen(false)}
+        >
+          <div
+            className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="save-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="save-modal-title">Save session</h3>
+            <p className="modal-body">
+              {schedule
+                ? 'Name this saved session (roster, schedule, and scores stay on this device).'
+                : 'Name this roster. Generate a schedule before saving if you want scores included.'}
+            </p>
+            <label className="field modal-field">
+              <span>Name</span>
+              <input
+                ref={saveNameInputRef}
+                type="text"
+                autoComplete="off"
+                value={saveNameDraft}
+                onChange={(e) => setSaveNameDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') submitSaveSession()
+                }}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setSaveModalOpen(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={submitSaveSession}>
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {importModalOpen && (
+        <div
+          className="modal-backdrop no-print"
+          role="presentation"
+          onClick={() => setImportModalOpen(false)}
+        >
+          <div
+            className="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="import-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="import-modal-title">Import from link</h3>
+            <p className="modal-body">
+              Paste the full share URL, or only the long text after{' '}
+              <code>d=</code> in the address bar.
+            </p>
+            <label className="field modal-field">
+              <span>Link or payload</span>
+              <textarea
+                ref={importPasteRef}
+                rows={5}
+                spellCheck={false}
+                className="modal-textarea"
+                value={importPasteDraft}
+                onChange={(e) => setImportPasteDraft(e.target.value)}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setImportModalOpen(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" onClick={submitImportPayload}>
+                Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {shareUrlModal != null && (
+        <div
+          className="modal-backdrop no-print"
+          role="presentation"
+          onClick={() => setShareUrlModal(null)}
+        >
+          <div
+            className="modal modal-wide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="share-url-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="share-url-modal-title">Copy your share link</h3>
+            <p className="modal-body">
+              Clipboard access was blocked. Copy the link manually or try the
+              button below.
+            </p>
+            <label className="field modal-field">
+              <span>Share URL</span>
+              <textarea
+                readOnly
+                rows={4}
+                spellCheck={false}
+                className="modal-textarea mono"
+                value={shareUrlModal}
+                onFocus={(e) => e.target.select()}
+              />
+            </label>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShareUrlModal(null)}>
+                Close
+              </button>
+              <button type="button" className="primary" onClick={copyShareUrlFromModal}>
+                Copy link
               </button>
             </div>
           </div>
@@ -570,11 +785,21 @@ export default function App() {
             to view or keep editing. Share links still work for sending to
             others.
           </p>
+          {storageBlocked && (
+            <p className="storage-warning" role="status">
+              This browser is blocking storage for this site, so saves will not
+              stick. In{' '}
+              <strong>Brave</strong>
+              : tap the lion icon → lower Shields for this site (or allow
+              cookies / device recognition). Then reload and try Save again.
+              Private windows also limit storage.
+            </p>
+          )}
           <div className="row wrap">
-            <button type="button" onClick={handleSaveGroup} disabled={names.length < 4}>
+            <button type="button" onClick={openSaveModal} disabled={names.length < 4}>
               Save (roster{schedule ? ' + schedule + scores' : ''})
             </button>
-            <button type="button" onClick={handleImportFromHash}>
+            <button type="button" onClick={openImportModal}>
               Import from link
             </button>
             {savedGroups.length > 0 && (

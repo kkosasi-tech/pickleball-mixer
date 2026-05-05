@@ -40,6 +40,10 @@ body {
   touch-action: manipulation;
 }
 
+.modal.modal-wide {
+  max-width: min(26rem, 100%);
+}
+
 .modal {
   width: 100%;
   max-width: 22rem;
@@ -69,10 +73,58 @@ body {
   justify-content: flex-end;
 }
 
+.modal-field {
+  margin-bottom: 1rem;
+}
+
+.modal-field span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.modal-field input,
+.modal-textarea {
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.modal-textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.modal-textarea.mono {
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
 .modal-actions button {
   min-height: 2.75rem;
   min-width: 5.5rem;
   padding: 0.5rem 1rem;
+}
+
+.storage-warning {
+  padding: 0.65rem 0.85rem;
+  margin: 0 0 0.75rem;
+  border-radius: 10px;
+  border: 1px solid #ddb8c4;
+  background: #fceef2;
+  color: #4a2830;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.modal-body code {
+  font-size: 0.85em;
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  background: #eef4ee;
 }
 
 button.danger {
