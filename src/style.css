@@ -1,0 +1,434 @@
+:root {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color: #142018;
+  background: #e8f0e8;
+  --card: #fbfffb;
+  --border: #c5d4c5;
+  --accent: #1e6b3a;
+  --accent-hover: #16532d;
+  --danger: #8b2942;
+  --muted: #4a5c4f;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem;
+}
+
+.hero h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+}
+
+.lede {
+  margin: 0;
+  color: var(--muted);
+  max-width: 40rem;
+}
+
+.panel {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(20, 32, 24, 0.06);
+}
+
+.panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.field span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+textarea,
+input[type='number'],
+select {
+  font: inherit;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 8rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.row.wrap {
+  align-items: center;
+}
+
+.field.tight {
+  margin-bottom: 0;
+}
+
+.hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.success {
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  padding: 0.45rem 0.85rem;
+}
+
+button.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+button.primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button.linkish {
+  border: none;
+  background: none;
+  color: var(--accent);
+  padding: 0.2rem 0.4rem;
+  text-decoration: underline;
+}
+
+.saved {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--border);
+}
+
+.saved h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.saved-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+  font-size: 0.92rem;
+}
+
+.saved-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #eef4ee;
+}
+
+.schedule {
+  margin-top: 2rem;
+}
+
+.print-header h2 {
+  margin: 0 0 0.25rem;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.rounds {
+  padding-left: 1.1rem;
+  margin: 1rem 0 0;
+}
+
+.round {
+  margin-bottom: 1.25rem;
+}
+
+.round h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.courts {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.courts li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #e2ebe2;
+}
+
+.courts li.court-row {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.court-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  min-width: 4.5rem;
+}
+
+.match {
+  font-weight: 600;
+}
+
+.bench {
+  margin: 0.5rem 0 0;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.scoring-help {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: var(--muted);
+}
+
+.standings-wrap {
+  margin-top: 1.5rem;
+}
+
+.standings {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.standings h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.standings-table th,
+.standings-table td {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid #e8efe8;
+}
+
+.standings-table th:last-child,
+.standings-table td:last-child {
+  text-align: right;
+}
+
+.standings-table tr.leader {
+  background: #e8f5ec;
+  font-weight: 600;
+}
+
+.leader-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.court-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+}
+
+.score-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0;
+}
+
+.score-box {
+  width: 3.25rem;
+  font: inherit;
+  padding: 0.35rem 0.4rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+.score-sep {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.score-print {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.print-only {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.finals {
+  margin-top: 2rem;
+  padding-top: 1.25rem;
+  border-top: 2px solid var(--border);
+}
+
+.finals h2 {
+  margin: 0 0 0.35rem;
+}
+
+.seed-list {
+  margin: 0.35rem 0 1rem;
+  padding-left: 1.25rem;
+  font-size: 0.92rem;
+}
+
+.podium {
+  margin-top: 2rem;
+  padding: 1rem 1.25rem;
+  background: #f4faf4;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.podium h2 {
+  margin: 0 0 0.35rem;
+}
+
+.podium-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.podium-list li {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr auto;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #dde8dd;
+  align-items: center;
+}
+
+.podium-rank {
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.podium-pts {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .page {
+    max-width: none;
+    padding: 0;
+  }
+
+  .schedule {
+    margin-top: 0;
+  }
+
+  .round {
+    break-inside: avoid;
+  }
+}
