@@ -1,5 +1,9 @@
 :root {
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    sans-serif;
   line-height: 1.5;
   font-weight: 400;
   color: #142018;
@@ -357,6 +361,11 @@ button.linkish {
   margin: 0;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.meta.quality {
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
 }
 
 .rounds {

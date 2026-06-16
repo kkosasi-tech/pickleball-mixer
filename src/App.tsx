@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   activeCourtCount,
   generateSchedule,
+  scheduleStats,
   type Match,
   type Round,
 } from './schedule'
@@ -112,9 +113,7 @@ function StandingsTable({ title, names, totals, hint }: StandingsProps) {
       {leaders.length > 0 && (
         <p className="leader-note">
           {leaders.length === 1 ? 'Leader' : 'Leaders'}:{' '}
-          <strong>
-            {leaders.map((x) => names[x.playerIndex]).join(', ')}
-          </strong>{' '}
+          <strong>{leaders.map((x) => names[x.playerIndex]).join(', ')}</strong>{' '}
           ({leaders[0]!.points} pts)
         </p>
       )}
@@ -178,6 +177,26 @@ export default function App() {
     [schedule, names.length, roundScores, finalRound, finalScores],
   )
 
+  const stats = useMemo(
+    () =>
+      schedule && names.length >= 4
+        ? scheduleStats(names.length, schedule)
+        : null,
+    [schedule, names.length],
+  )
+
+  // Load a decoded/normalized share payload into app state. Shared by the
+  // on-load URL import and the manual "Import from link" flow.
+  const applyPayload = useCallback((p: SharePayloadV2) => {
+    setPlayerText(p.names.join('\n'))
+    setCourts(p.courts)
+    setSchedule(p.rounds)
+    setRoundCount(p.rounds.length || 7)
+    setRoundScores(p.roundScores)
+    setFinalRound(p.finalRound)
+    setFinalScores(p.finalScores)
+  }, [])
+
   const refreshSaved = useCallback(() => {
     setStorageBlocked(!canUseLocalStorage())
     setSavedGroups(loadSavedGroups())
@@ -191,25 +210,59 @@ export default function App() {
     return () => document.removeEventListener('visibilitychange', onVis)
   }, [refreshSaved])
 
+  const anyModalOpen =
+    !!confirmDialog ||
+    saveModalOpen ||
+    importModalOpen ||
+    shareUrlModal != null ||
+    loadModalOpen
+
+  // Restore focus to whatever triggered the modal once it closes.
+  const lastFocusedRef = useRef<HTMLElement | null>(null)
   useEffect(() => {
-    const anyOpen =
-      confirmDialog ||
-      saveModalOpen ||
-      importModalOpen ||
-      shareUrlModal != null ||
-      loadModalOpen
-    if (!anyOpen) return
+    if (anyModalOpen) {
+      lastFocusedRef.current = document.activeElement as HTMLElement | null
+    } else if (lastFocusedRef.current) {
+      lastFocusedRef.current.focus()
+      lastFocusedRef.current = null
+    }
+  }, [anyModalOpen])
+
+  useEffect(() => {
+    if (!anyModalOpen) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      setConfirmDialog(null)
-      setSaveModalOpen(false)
-      setImportModalOpen(false)
-      setShareUrlModal(null)
-      setLoadModalOpen(false)
+      if (e.key === 'Escape') {
+        setConfirmDialog(null)
+        setSaveModalOpen(false)
+        setImportModalOpen(false)
+        setShareUrlModal(null)
+        setLoadModalOpen(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Trap focus inside the open dialog (only one is ever mounted).
+      const modal = document.querySelector<HTMLElement>(
+        '.modal-backdrop .modal',
+      )
+      if (!modal) return
+      const focusable = modal.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+      )
+      if (focusable.length === 0) return
+      const first = focusable[0]!
+      const last = focusable[focusable.length - 1]!
+      const active = document.activeElement
+      if (e.shiftKey && active === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [confirmDialog, saveModalOpen, importModalOpen, shareUrlModal, loadModalOpen])
+  }, [anyModalOpen])
 
   useEffect(() => {
     if (saveModalOpen) {
@@ -227,17 +280,10 @@ export default function App() {
     refreshSaved()
     const shared = readShareFromLocation()
     if (shared) {
-      const p = normalizeSharePayload(shared)
-      setPlayerText(p.names.join('\n'))
-      setCourts(p.courts)
-      setSchedule(p.rounds)
-      setRoundCount(p.rounds.length || 7)
-      setRoundScores(p.roundScores)
-      setFinalRound(p.finalRound)
-      setFinalScores(p.finalScores)
+      applyPayload(normalizeSharePayload(shared))
       setError(null)
     }
-  }, [refreshSaved])
+  }, [refreshSaved, applyPayload])
 
   const handleGenerate = () => {
     setError(null)
@@ -296,6 +342,14 @@ export default function App() {
       next.matches[matchIdx]![side] = parsePoints(value)
       return next
     })
+  }
+
+  const clearScores = () => {
+    if (!schedule) return
+    setRoundScores(scoresForSchedule(schedule))
+    if (finalRound) setFinalScores(emptyRoundPoints(finalRound))
+    setError(null)
+    setCopyHint('Scores cleared.')
   }
 
   const setupChampionshipRoundFirstTime = () => {
@@ -409,47 +463,24 @@ export default function App() {
       setError('Paste a shared link or the ?d=… payload first.')
       return
     }
+    // Accept either a full share URL (?d=…) or just the bare payload string.
+    let encoded = raw
     try {
-      const u = new URL(raw)
-      const d = u.searchParams.get('d')
-      if (d) {
-        const data = decodeSharePayload(d)
-        if (data) {
-          const p = normalizeSharePayload(data)
-          setPlayerText(p.names.join('\n'))
-          setCourts(p.courts)
-          setSchedule(p.rounds)
-          setRoundCount(p.rounds.length || 7)
-          setRoundScores(p.roundScores)
-          setFinalRound(p.finalRound)
-          setFinalScores(p.finalScores)
-          setImportModalOpen(false)
-          setImportPasteDraft('')
-          setError(null)
-          setCopyHint(null)
-          return
-        }
-      }
+      const d = new URL(raw).searchParams.get('d')
+      if (d) encoded = d
     } catch {
-      /* not a full URL */
+      /* not a full URL — treat the input as a bare payload */
     }
-    const data = decodeSharePayload(raw)
-    if (data) {
-      const p = normalizeSharePayload(data)
-      setPlayerText(p.names.join('\n'))
-      setCourts(p.courts)
-      setSchedule(p.rounds)
-      setRoundCount(p.rounds.length || 7)
-      setRoundScores(p.roundScores)
-      setFinalRound(p.finalRound)
-      setFinalScores(p.finalScores)
-      setImportModalOpen(false)
-      setImportPasteDraft('')
-      setError(null)
-      setCopyHint(null)
-    } else {
+    const data = decodeSharePayload(encoded)
+    if (!data) {
       setError('Could not read that link or payload.')
+      return
     }
+    applyPayload(normalizeSharePayload(data))
+    setImportModalOpen(false)
+    setImportPasteDraft('')
+    setError(null)
+    setCopyHint(null)
   }
 
   const handleLoadGroup = (id: string) => {
@@ -485,8 +516,7 @@ export default function App() {
       setFinalRound(fr)
       setFinalScores(
         fr
-          ? g.finalScores &&
-            g.finalScores.matches.length === fr.matches.length
+          ? g.finalScores && g.finalScores.matches.length === fr.matches.length
             ? g.finalScores
             : emptyRoundPoints(fr)
           : null,
@@ -613,7 +643,11 @@ export default function App() {
               <button type="button" onClick={() => setSaveModalOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="primary" onClick={submitSaveSession}>
+              <button
+                type="button"
+                className="primary"
+                onClick={submitSaveSession}
+              >
                 Save
               </button>
             </div>
@@ -654,7 +688,11 @@ export default function App() {
               <button type="button" onClick={() => setImportModalOpen(false)}>
                 Cancel
               </button>
-              <button type="button" className="primary" onClick={submitImportPayload}>
+              <button
+                type="button"
+                className="primary"
+                onClick={submitImportPayload}
+              >
                 Import
               </button>
             </div>
@@ -695,7 +733,11 @@ export default function App() {
               <button type="button" onClick={() => setShareUrlModal(null)}>
                 Close
               </button>
-              <button type="button" className="primary" onClick={copyShareUrlFromModal}>
+              <button
+                type="button"
+                className="primary"
+                onClick={copyShareUrlFromModal}
+              >
                 Copy link
               </button>
             </div>
@@ -717,7 +759,9 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="load-modal-title">Load saved session</h3>
-            <p className="modal-body">Choose a session stored on this device.</p>
+            <p className="modal-body">
+              Choose a session stored on this device.
+            </p>
             <ul className="load-pick-list">
               {savedGroups.map((g) => (
                 <li key={g.id}>
@@ -823,6 +867,9 @@ export default function App() {
           <button type="button" onClick={handleShare} disabled={!schedule}>
             Copy share link
           </button>
+          <button type="button" onClick={clearScores} disabled={!schedule}>
+            Clear scores
+          </button>
         </div>
 
         <div className="saved no-print">
@@ -836,15 +883,18 @@ export default function App() {
           {storageBlocked && (
             <p className="storage-warning" role="status">
               This browser is blocking storage for this site, so saves will not
-              stick. In{' '}
-              <strong>Brave</strong>
-              : tap the lion icon → lower Shields for this site (or allow
-              cookies / device recognition). Then reload and try Save again.
-              Private windows also limit storage.
+              stick. In <strong>Brave</strong>: tap the lion icon → lower
+              Shields for this site (or allow cookies / device recognition).
+              Then reload and try Save again. Private windows also limit
+              storage.
             </p>
           )}
           <div className="row wrap">
-            <button type="button" onClick={openSaveModal} disabled={names.length < 4}>
+            <button
+              type="button"
+              onClick={openSaveModal}
+              disabled={names.length < 4}
+            >
               Save (roster{schedule ? ' + schedule + scores' : ''})
             </button>
             <button type="button" onClick={openImportModal}>
@@ -907,6 +957,17 @@ export default function App() {
                 {names.length} players · {courts} court{courts === 1 ? '' : 's'}{' '}
                 · {schedule.length} rounds
               </p>
+              {stats && (
+                <p className="meta quality">
+                  {stats.repeatPartners === 0
+                    ? 'No repeat partners'
+                    : `${stats.repeatPartners} repeat partnership${stats.repeatPartners === 1 ? '' : 's'}`}
+                  {' · '}
+                  {stats.repeatOpponents === 0
+                    ? 'no repeat opponents'
+                    : `${stats.repeatOpponents} repeat opponent pairing${stats.repeatOpponents === 1 ? '' : 's'}`}
+                </p>
+              )}
             </header>
             <p className="scoring-help no-print">
               Enter the points each <strong>team</strong> scored in that game.
@@ -950,6 +1011,7 @@ export default function App() {
                                     )
                                   }
                                   aria-label={`Round ${ri + 1} court ${ci + 1}: ${t1n} points`}
+                                  onFocus={(e) => e.currentTarget.select()}
                                 />
                               </label>
                               <span className="score-sep">–</span>
@@ -969,6 +1031,7 @@ export default function App() {
                                     )
                                   }
                                   aria-label={`Round ${ri + 1} court ${ci + 1}: ${t2n} points`}
+                                  onFocus={(e) => e.currentTarget.select()}
                                 />
                               </label>
                             </div>
@@ -982,7 +1045,9 @@ export default function App() {
                     {round.sittingOut.length > 0 && (
                       <p className="bench">
                         Sitting out:{' '}
-                        {round.sittingOut.map((i: number) => names[i]).join(', ')}
+                        {round.sittingOut
+                          .map((i: number) => names[i])
+                          .join(', ')}
                       </p>
                     )}
                   </li>
@@ -1038,9 +1103,7 @@ export default function App() {
                       return (
                         <li key={ci} className="court-row">
                           <div className="court-main">
-                            <span className="court-label">
-                              Final {ci + 1}
-                            </span>
+                            <span className="court-label">Final {ci + 1}</span>
                             <span className="match">
                               {formatMatch(names, m)}
                             </span>
@@ -1056,6 +1119,7 @@ export default function App() {
                                   updateFinalScore(ci, 'team1', e.target.value)
                                 }
                                 aria-label={`Final ${ci + 1}: ${t1n} points`}
+                                onFocus={(e) => e.currentTarget.select()}
                               />
                             </label>
                             <span className="score-sep">–</span>
@@ -1069,6 +1133,7 @@ export default function App() {
                                   updateFinalScore(ci, 'team2', e.target.value)
                                 }
                                 aria-label={`Final ${ci + 1}: ${t2n} points`}
+                                onFocus={(e) => e.currentTarget.select()}
                               />
                             </label>
                           </div>

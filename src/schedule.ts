@@ -11,7 +11,11 @@ export type Round = {
 
 type Pair = [number, number]
 
-function scoreMatch(m: Match, partner: number[][], opponent: number[][]): number {
+function scoreMatch(
+  m: Match,
+  partner: number[][],
+  opponent: number[][],
+): number {
   const [a, b] = m.team1
   const [c, d] = m.team2
   let s = partner[a][b] + partner[c][d]
@@ -19,7 +23,11 @@ function scoreMatch(m: Match, partner: number[][], opponent: number[][]): number
   return s
 }
 
-function scoreRound(matches: Match[], partner: number[][], opponent: number[][]): number {
+function scoreRound(
+  matches: Match[],
+  partner: number[][],
+  opponent: number[][],
+): number {
   return matches.reduce((acc, m) => acc + scoreMatch(m, partner, opponent), 0)
 }
 
@@ -257,12 +265,22 @@ export function generateSchedule(
   const rounds: Round[] = []
 
   for (let r = 0; r < roundCount; r++) {
-    const { playing, sitting } = pickPlayingAndSitters(playerCount, k, sitterCounts)
+    const { playing, sitting } = pickPlayingAndSitters(
+      playerCount,
+      k,
+      sitterCounts,
+    )
     let matches: Match[]
     if (activeCourts <= 2) {
       matches = bestRoundExact(playing, activeCourts, partner, opponent)
     } else {
-      matches = bestRoundHeuristic(playing, activeCourts, partner, opponent, 1200)
+      matches = bestRoundHeuristic(
+        playing,
+        activeCourts,
+        partner,
+        opponent,
+        1200,
+      )
     }
     applyRound(matches, partner, opponent)
     rounds.push({ matches, sittingOut: sitting })
@@ -273,4 +291,41 @@ export function generateSchedule(
 
 export function activeCourtCount(playerCount: number, courts: number): number {
   return Math.min(courts, Math.floor(playerCount / 4))
+}
+
+export type ScheduleStats = {
+  /** Times a partnership was repeated beyond its first occurrence. */
+  repeatPartners: number
+  /** Times an opponent pairing was repeated beyond its first occurrence. */
+  repeatOpponents: number
+  /** Difference between the most and least benched player. */
+  sitOutSpread: number
+}
+
+/** Quality summary for a built schedule — 0 repeats is ideal. */
+export function scheduleStats(
+  playerCount: number,
+  rounds: Round[],
+): ScheduleStats {
+  const partner = Array.from({ length: playerCount }, () =>
+    new Array(playerCount).fill(0),
+  )
+  const opponent = Array.from({ length: playerCount }, () =>
+    new Array(playerCount).fill(0),
+  )
+  const sit = new Array(playerCount).fill(0)
+  for (const round of rounds) {
+    applyRound(round.matches, partner, opponent)
+    for (const s of round.sittingOut) sit[s]++
+  }
+  let repeatPartners = 0
+  let repeatOpponents = 0
+  for (let i = 0; i < playerCount; i++) {
+    for (let j = i + 1; j < playerCount; j++) {
+      if (partner[i][j] > 1) repeatPartners += partner[i][j] - 1
+      if (opponent[i][j] > 1) repeatOpponents += opponent[i][j] - 1
+    }
+  }
+  const sitOutSpread = Math.max(...sit) - Math.min(...sit)
+  return { repeatPartners, repeatOpponents, sitOutSpread }
 }

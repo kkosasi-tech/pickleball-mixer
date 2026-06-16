@@ -60,7 +60,10 @@ function sanitizeGroup(raw: unknown): SavedGroup | null {
   if (!raw || typeof raw !== 'object') return null
   const g = raw as Record<string, unknown>
   if (typeof g.id !== 'string' || typeof g.name !== 'string') return null
-  if (!Array.isArray(g.players) || !g.players.every((p) => typeof p === 'string')) {
+  if (
+    !Array.isArray(g.players) ||
+    !g.players.every((p) => typeof p === 'string')
+  ) {
     return null
   }
   if (typeof g.courts !== 'number') return null
@@ -76,8 +79,12 @@ function sanitizeGroup(raw: unknown): SavedGroup | null {
   const rounds = g.rounds
   if (Array.isArray(rounds) && rounds.length > 0 && rounds.every(isRound)) {
     out.rounds = rounds as Round[]
-    let rs = g.roundScores
-    if (Array.isArray(rs) && rs.length === out.rounds.length && rs.every(isRoundPoints)) {
+    const rs = g.roundScores
+    if (
+      Array.isArray(rs) &&
+      rs.length === out.rounds.length &&
+      rs.every(isRoundPoints)
+    ) {
       out.roundScores = rs as RoundPoints[]
     } else {
       out.roundScores = scoresForSchedule(out.rounds)
@@ -89,7 +96,10 @@ function sanitizeGroup(raw: unknown): SavedGroup | null {
     }
     if (g.finalScores != null && isRoundPoints(g.finalScores)) {
       out.finalScores = g.finalScores
-      if (out.finalRound && out.finalScores.matches.length !== out.finalRound.matches.length) {
+      if (
+        out.finalRound &&
+        out.finalScores.matches.length !== out.finalRound.matches.length
+      ) {
         out.finalScores = null
       }
     } else {
