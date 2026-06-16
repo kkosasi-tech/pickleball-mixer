@@ -74,7 +74,11 @@ export function decodeSharePayload(encoded: string): SharePayload | null {
       const names = data.names
       const courts = data.courts
       const rounds = data.rounds
-      if (!Array.isArray(names) || typeof courts !== 'number' || !Array.isArray(rounds)) {
+      if (
+        !Array.isArray(names) ||
+        typeof courts !== 'number' ||
+        !Array.isArray(rounds)
+      ) {
         return null
       }
       if (!rounds.every(isRound)) return null
@@ -89,7 +93,11 @@ export function decodeSharePayload(encoded: string): SharePayload | null {
       const names = data.names
       const courts = data.courts
       const rounds = data.rounds
-      if (!Array.isArray(names) || typeof courts !== 'number' || !Array.isArray(rounds)) {
+      if (
+        !Array.isArray(names) ||
+        typeof courts !== 'number' ||
+        !Array.isArray(rounds)
+      ) {
         return null
       }
       if (!rounds.every(isRound)) return null

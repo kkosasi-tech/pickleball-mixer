@@ -45,8 +45,7 @@ export function computeTotals(
   const totals = new Array(playerCount).fill(0)
   for (let r = 0; r < rounds.length; r++) {
     const round = rounds[r]
-    const pts =
-      roundPoints[r] ?? emptyRoundPoints(round)
+    const pts = roundPoints[r] ?? emptyRoundPoints(round)
     addPointsForRound(totals, round, pts)
   }
   if (finalRound && finalPts) {

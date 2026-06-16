@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -7,4 +8,8 @@ const base = process.env.GITHUB_PAGES_BASE ?? '/'
 export default defineConfig({
   plugins: [react()],
   base,
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts'],
+  },
 })
